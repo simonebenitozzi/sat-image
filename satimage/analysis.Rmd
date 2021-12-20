@@ -1,0 +1,75 @@
+---
+title: "Esplorativa"
+output: html_notebook
+---
+
+```{r}
+sat_trn = read.csv("sat.trn.csv", stringsAsFactors = T)
+sat_tst = read.csv("sat.tst.csv", stringsAsFactors = T)
+```
+
+```{r}
+table(sat_trn$Label)
+prop.table(table(sat_trn$Label)) * 100
+```
+
+
+```{r}
+plot(sat_trn$Label, col=1:nlevels(sat_trn$Label))
+```
+
+```{r}
+par(mfrow=c(1,4))
+for (i in 1:4){
+    boxplot(sat_trn[,2 + (i+3) * 4], main=names(sat_trn)[2 + (i+3) * 4])
+}
+```
+
+```{r}
+library(caret);
+featurePlot(sat_trn$p5.Green, sat_trn$Label, plot="density", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
+featurePlot(sat_trn$p5.Red, sat_trn$Label, plot="density", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
+featurePlot(sat_trn$p5.NIR, sat_trn$Label, plot="density", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
+featurePlot(sat_trn$p5.NIR.1, sat_trn$Label, plot="density", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
+```
+
+```{r}
+featurePlot(sat_trn[,c(1 + 16,2 + 16)], sat_trn$Label, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
+featurePlot(sat_trn[,c(2 + 16,3 + 16)], sat_trn$Label, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
+featurePlot(sat_trn[,c(3 + 16,4 + 16)], sat_trn$Label, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
+featurePlot(sat_trn[,c(2 + 16,4 + 16)], sat_trn$Label, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
+featurePlot(sat_trn[,c(1 + 16,4 + 16)], sat_trn$Label, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
+```
+```{r}
+featurePlot(sat_trn[,c(2 + 12,2 + 16, 2 + 20)], sat_trn$Label, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
+featurePlot(sat_trn[,c(2 + 4,2 + 16, 2 + 28)], sat_trn$Label, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
+```
+```{r}
+greenCounts = table(sat_trn$Label, sat_trn$p5.Green)
+redCounts = table(sat_trn$Label, sat_trn$p5.Red)
+NIRCounts = table(sat_trn$Label, sat_trn$p5.NIR)
+
+barplot(greenCounts, col=1:nlevels(sat_trn$Label), legend = levels(sat_trn$Label), main = "Pixel tybe by p5.Green", args.legend = list(cex = .75, x="topleft"))
+barplot(redCounts, col=1:nlevels(sat_trn$Label), legend = levels(sat_trn$Label), main = "Pixel tybe by p5.Red", args.legend = list(cex = .75, x="topleft"))
+barplot(NIRCounts, col=1:nlevels(sat_trn$Label), legend = levels(sat_trn$Label), main = "Pixel tybe by p5.NIR", args.legend = list(cex = .75, x="topleft"))
+```
+```{r}
+library(rpart);
+decisionTree = rpart(Label ~ p5.Green + p5.Red + p5.NIR + p5.NIR.1 + p4.Red + p6.Red, data = sat_trn, method = "class")
+```
+
+
+```{r}
+library(RColorBrewer);
+library(rpart.plot);
+library(rattle);
+fancyRpartPlot(decisionTree);
+```
+```{r}
+sat_tst$Prediction <- predict(decisionTree, sat_tst, type = "class")
+confusion.matrix = table(sat_tst$Label, sat_tst$Prediction)
+acc = sum(diag(confusion.matrix)/sum(confusion.matrix))
+sprintf("Accuracy is %f%%", acc * 100)
+confusion.matrix
+```
+
