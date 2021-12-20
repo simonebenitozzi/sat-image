@@ -55,7 +55,7 @@ barplot(NIRCounts, col=1:nlevels(sat_trn$Label), legend = levels(sat_trn$Label),
 ```
 ```{r}
 library(rpart);
-decisionTree = rpart(Label ~ p5.Green + p5.Red + p5.NIR + p5.NIR.1 + p4.Red + p6.Red, data = sat_trn, method = "class")
+decisionTree = rpart(Label ~ p5.Green + p5.Red + p5.NIR + p5.NIR.1 + p4.Red + p6.Red + p8.Red, data = sat_trn, method = "class")
 ```
 
 
@@ -71,5 +71,19 @@ confusion.matrix = table(sat_tst$Label, sat_tst$Prediction)
 acc = sum(diag(confusion.matrix)/sum(confusion.matrix))
 sprintf("Accuracy is %f%%", acc * 100)
 confusion.matrix
+```
+
+```{r}
+library(e1071);
+svm.model = svm(Label ~ p5.Red + p5.Green + p5.NIR + p5.NIR.1 + p8.Red, data = sat_trn, cost = 1, kernel = 'radial')
+print(svm)
+```
+```{r}
+svm.predict = predict(svm.model, sat_tst)
+svm.table = table(svm.predict, sat_tst$Label)
+svm.confusion.matrix = table(sat_tst$Label, svm.predict)
+svm.confusion.matrix
+svm.accuracy = sum(diag(svm.confusion.matrix)) / sum(svm.confusion.matrix)
+sprintf("SVM Accuracy is %f%%", svm.accuracy * 100)
 ```
 
