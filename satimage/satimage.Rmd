@@ -1,6 +1,8 @@
 ---
 title: "Satimage"
-output: html_notebook
+output:
+  pdf_document: default
+  html_notebook: default
 ---
 
 
@@ -10,6 +12,8 @@ library(FactoMineR); # For PCA
 library(factoextra); # For PCA
 library(caret); # For feature plots
 library(e1071); # For SVM
+library(nnet); # For Neural nets
+library(pROC);
 ```
 
 ```{r}
@@ -84,6 +88,9 @@ fviz_pca_var(pca.results, col.var = "black")
 
 ```
 
+Analizzando le coordinate per i singoli attributi si riesce a capire i 4 cluster rappresentano i 4 tipi di variabili in gioco (Red, Green NIR1, NIR2)
+
+
 
 
 ```{r}
@@ -102,6 +109,9 @@ featurePlot(x=dataset.input.pca, y=dataset.output, plot="pairs", auto.key=list(c
 indexes = sample(2, nrow(dataset.pca), replace = TRUE, prob = c(0.7, 0.3))
 temp.trainset = dataset.pca[indexes == 1,]
 testset = dataset.pca[indexes == 2,]
+testset.x = testset[, !names(testset) %in% c("class")]
+testset.y = testset[,c("class")]
+
 ```
 
 
@@ -115,11 +125,95 @@ validationset = temp.trainset[indexes == 2,]
 
 ```{r}
 # Train a svm model
-svm.model = svm(class ~ Dim.1 + Dim.2 + Dim.3 + Dim.4, data = trainset, kernel = 'radial', cost = 1)
+#svm.model = svm(class ~ Dim.1 + Dim.2 + Dim.3 + Dim.4, data = trainset, kernel = 'radial', cost = 1)
 
 # Predict the labels and create the confusion matrix
-svm.prediction = predict(svm.model, testset)
-svm.table = table(svm.prediction, testset$class)
-svm.accuracy = sum(diag(svm.table)) / sum(svm.table)
+#svm.prediction = predict(svm.model, testset)
+#svm.table = table(svm.prediction, testset$class)
+#svm.accuracy = sum(diag(svm.table)) / sum(svm.table)
+
+```
+
+```{r}
+svm.tuning.control = tune.control(sampling = "fix")
+svm.tuning = tune.svm(class ~ ., data = trainset, kernel = "radial", gamma = 10^(-3:0), cost = 2^(-2:2), validation.x = validationset[,!names(validationset) %in% c("class")], validation.y = validationset[,c("class")], tunecontrol = svm.tuning.control, probability = T)
+plot(svm.tuning)
+```
+
+
+```{r}
+svm.tuned = svm.tuning$best.model
+svm.tuned.testset.prediction = predict(svm.tuned, testset.x)
+svm.tuned.testset.confusion_matrix = table(svm.tuned.testset.prediction, testset$class)
+svm.tuned.accuracy = sum(diag(svm.tuned.testset.confusion_matrix)) / sum(svm.tuned.testset.confusion_matrix)
+sprintf("Tuned SVM accuracy is %2.1f%%", (1 - svm.tuning$best.performance) * 100)
+```
+
+```{r}
+nnet.tuning.control = tune.control(sampling = 'fix', performances = T)
+nnet.tuning = tune.nnet(class ~., data = trainset, size = c(2:4), validation.x = validationset[,!names(validationset) %in% c("class")], validation.y = validationset[,c("class")], decay = c(0, 2^-2:1))
+nnet.tuned = nnet.tuning$best.model
+plot(nnet.tuning)
+```
+
+```{r}
+acc = 1 - nnet.tuning$best.performance
+sprintf("Tuned neuralnet overall accuracy is %2.1f%%", acc * 100)
+```
+
+
+```{r}
+predictions = predict(nnet.tuning$best.model, testset.x)
+predictions.classes = class.names[max.col(predictions)]
+errors = predictions.classes != testset.y
+acc = length(which(errors))/length(errors)
+nnet.tuned.testset.predictions = predictions.classes
+nnet.tuned.testset.confusion_matrix = table(nnet.tuned.testset.predictions, testset.y)
+```
+## Confronto modelli
+
+```{r}
+svm.tuned.testset.predictions = predict(svm.tuned, testset.x, probability = T)
+svm.tuned.testset.predictions.probs = attr(svm.tuned.testset.predictions, "probabilities")
+svm.roc = multiclass.roc(testset.y, svm.tuned.testset.predictions.probs)
+```
+
+```{r}
+nnet.tuned.testset.predictions = predict(nnet.tuning$best.model, testset.x, probability = T)
+nnet.roc = multiclass.roc(testset.y, nnet.tuned.testset.predictions)
+```
+
+
+```{r}
+sprintf("SVM ROC AUC: %f", svm.roc$auc)
+sprintf("NNET ROC AUC: %f", nnet.roc$auc)
+```
+## Calcolo metriche
+```{r}
+source("compute_f_scores.R")
+
+weights = list()
+for (cls in class.names){
+  count = class.frequencies[class.frequencies$class == cls,"frequencies"]
+  weights[[cls]] = count
+}
+total_instances_count = Reduce('+', weights)
+weights = mapply('/', weights, total_instances_count)
+fscores = compute_f_scores(class.names, svm.tuned.testset.confusion_matrix, weights)
+
+svm.macro.fscore = Reduce('+', fscores$fscores) / length(class.names)
+svm.micro.fscore = Reduce('+', fscores$fscores.weighted)
+
+sprintf("SVM macro F-Score: %1.3f", svm.macro.fscore)
+sprintf("SVM micro F-Score: %1.3f", svm.micro.fscore)
+```
+
+```{r}
+fscores = compute_f_scores(class.names, nnet.tuned.testset.confusion_matrix, weights)
+nnet.macro.fscore = Reduce('+', fscores$fscores) / length(class.names)
+nnet.micro.fscore = Reduce('+', fscores$fscores.weighted)
+sprintf("NNet macro F-Score: %1.3f", nnet.macro.fscore)
+sprintf("Net micro F-Score: %1.3f", nnet.micro.fscore)
+
 ```
 
