@@ -1,8 +1,10 @@
 ---
 title: "Satimage"
 output:
-  pdf_document: default
   html_notebook: default
+  html_document:
+    df_print: paged
+  pdf_document: default
 ---
 
 
@@ -14,6 +16,12 @@ library(caret); # For feature plots
 library(e1071); # For SVM
 library(nnet); # For Neural nets
 library(pROC);
+
+library(cluster) # For k-means
+library(fpc) # For k-means
+library(seriation) # For k-means
+library(ggpubr) # For clustering visualization
+library(TSclust) # For clustering Evaluation
 ```
 
 ```{r}
@@ -89,9 +97,6 @@ fviz_pca_var(pca.results, col.var = "black")
 ```
 
 Analizzando le coordinate per i singoli attributi si riesce a capire i 4 cluster rappresentano i 4 tipi di variabili in gioco (Red, Green NIR1, NIR2)
-
-
-
 
 ```{r}
 # Extract the principal components
@@ -214,6 +219,135 @@ nnet.macro.fscore = Reduce('+', fscores$fscores) / length(class.names)
 nnet.micro.fscore = Reduce('+', fscores$fscores.weighted)
 sprintf("NNet macro F-Score: %1.3f", nnet.macro.fscore)
 sprintf("Net micro F-Score: %1.3f", nnet.micro.fscore)
+
+```
+
+## Clustering
+
+```{r}
+trainset.clustering = dataset.input.pca
+labels = dataset.pca[1]
+
+# dataframe to vector conversion
+labels.list <- c()
+for(i in 1:nrow(labels)){
+  labels.list <- append(labels.list, labels[i,1])
+}
+
+set.seed(1)
+nk = 2:12
+SW = sapply(nk, function(k){cluster.stats(dist(trainset.clustering), 
+                              kmeans(trainset.clustering, centers=k, nstart=5)$cluster)$avg.silwidth})
+#SW
+plot(nk, SW, type="l", xlab="number of clusters", ylab="average silhouette")
+```
+
+```{r}
+# Scelta dei parametri di seed e nstart
+
+# Il valore ottimale per nstart e' stato individuato in 5, che garantisce un'ottima misura di stabilita' dell'algorimto, con una bassa influenza del seed iniziale rispetto alla suddivisione in clusterr del dataset
+
+# Di seguito e' mostrato come i diversi valori di seed (scelti in maniera random), non influenzino la misura di silhouette
+Z <- array(sample(1:100, 20, replace=T), c(20, 1))
+silhouettes <- c()
+for(i in 1:20) {
+    set.seed(Z[i])
+    fit = kmeans(trainset.clustering, 3, nstart=5)
+    ss = silhouette(fit$cluster, dist(trainset.clustering))
+    silhouettes = append(silhouettes, mean(ss[, 3]))
+    # print(sprintf("Seed %2d: %f", Z[i], mean(ss[, 3])))
+}
+plot(Z, silhouettes, type="b", main = "Silhouette plot with different random seeds", xlab="seeds")
+set.seed(1)
+
+```
+
+
+### K=6
+Pur ottenendo una misura minore di Silhouette in confronto a k=3, e' stato comunque ritenuto opportuno analizzare i risultati ottenuti tramite l'esecuzioe con parametro k=6, che rappresenta il numero delle classi, e di conseguenza porta ad una maggiore misura di similarita' tra i cluster rilevati da k-means e l'effettiva suddivisione in classi del dataset
+```{r}
+fit = kmeans(trainset.clustering, 6, nstart=5)
+
+#Silhouette
+kms = silhouette(fit$cluster, dist(trainset.clustering))
+plot(kms, col=1:6, border=NA, main = "Silhouette Plot for k=6")
+
+# Dissimilarity Matrix
+dissplot(dist(trainset.clustering), labels=fit$cluster, options=list(main="Kmeans clustering with k=6"))
+```
+
+```{r}
+# Evaluation
+sprintf("Similarity with (k=6): %f", cluster.evaluation(labels.list, fit$cluster))
+```
+
+```{r}
+# visualization
+fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(1,2), main="Dimensions: 1 & 2", 
+             geom="point")
+fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(1,3), main="Dimensions: 1 & 3", 
+             geom="point")
+fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(1,4), main="Dimensions: 1 & 4", 
+             geom="point")
+
+fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(2,3), main="Dimensions: 2 & 3", 
+             geom="point")
+fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(2,4), main="Dimensions: 2 & 4", 
+             geom="point")
+
+fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(3,4), main="Dimensions: 3 & 4", 
+             geom="point")
+```
+
+### K=3
+Nonostante il valore di Silhouette maggiore rispetto a k=6, il parametro k=3 porta ad un peggioramento nella misura di similarita' tra cluster rilevati e classi del dataset
+```{r}
+fit = kmeans(trainset.clustering, 3, nstart=5)
+
+kms = silhouette(fit$cluster, dist(trainset.clustering))
+plot(kms, col=1:3, border=NA, main = "Silhouette Plot for k=3")
+
+# Dissimilarity Matrix
+dissplot(dist(trainset.clustering), labels=fit$cluster, options=list(main="Kmeans clustering with k=3"))
+```
+
+```{r}
+# Evaluation
+sprintf("Similarity with (k=3): %f", cluster.evaluation(labels.list, fit$cluster))
+```
+
+```{r}
+# visualization
+fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(1,2), main="Dimensions: 1 & 2", 
+             geom="point")
+fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(1,3), main="Dimensions: 1 & 3", 
+             geom="point")
+fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(1,4), main="Dimensions: 1 & 4", 
+             geom="point")
+
+fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(2,3), main="Dimensions: 2 & 3", 
+             geom="point")
+fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(2,4), main="Dimensions: 2 & 4", 
+             geom="point")
+
+fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(3,4), main="Dimensions: 3 & 4", 
+             geom="point")
+```
+
+### Evaluation al variare di k
+Evidenzia la misura di similarita' tra i cluster e le classi del dataset, al variaaare del parametro k
+Il valore piu' alto e' ottenuto con k=6, in linea con le rilevazioni precedenti
+```{r}
+similarity = c()
+for (k in 2:6) {
+    fit = kmeans(trainset.clustering, k, nstart = 5)
+    eval = cluster.evaluation(labels.list, fit$cluster)
+    similarity = append(similarity, eval)
+}
+plot(2:6, similarity, type="b", main = "Similarity plot for ascending K", xlab="K")
+```
+
+```{r}
 
 ```
 
