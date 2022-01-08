@@ -91,8 +91,6 @@ fviz_pca_var(pca.results, col.var = "black")
 Analizzando le coordinate per i singoli attributi si riesce a capire i 4 cluster rappresentano i 4 tipi di variabili in gioco (Red, Green NIR1, NIR2)
 
 
-
-
 ```{r}
 # Extract the principal components
 dataset.input.pca = data.frame(get_pca_ind(pca.results)$coord)
@@ -161,7 +159,6 @@ acc = 1 - nnet.tuning$best.performance
 sprintf("Tuned neuralnet overall accuracy is %2.1f%%", acc * 100)
 ```
 
-
 ```{r}
 predictions = predict(nnet.tuning$best.model, testset.x)
 predictions.classes = class.names[max.col(predictions)]
@@ -170,6 +167,7 @@ acc = length(which(errors))/length(errors)
 nnet.tuned.testset.predictions = predictions.classes
 nnet.tuned.testset.confusion_matrix = table(nnet.tuned.testset.predictions, testset.y)
 ```
+
 ## Confronto modelli
 
 ```{r}
