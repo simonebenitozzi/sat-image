@@ -125,6 +125,8 @@ testset.y = testset[,c("class")]
 indexes = sample(2, nrow(temp.trainset), replace = TRUE, prob = c(0.9, 0.1))
 trainset = temp.trainset[indexes == 1,]
 validationset = temp.trainset[indexes == 2,]
+validationset.x = validationset[,!names(validationset) %in% c("class")]
+validationset.y =  validationset[,c("class")]
 ```
 
 
@@ -141,22 +143,23 @@ validationset = temp.trainset[indexes == 2,]
 
 ```{r}
 svm.tuning.control = tune.control(sampling = "fix")
-svm.tuning = tune.svm(class ~ ., data = trainset, kernel = "radial", gamma = 10^(-3:0), cost = 2^(-2:2), validation.x = validationset[,!names(validationset) %in% c("class")], validation.y = validationset[,c("class")], tunecontrol = svm.tuning.control, probability = T)
+svm.tuning = tune.svm(class ~ ., data = trainset, kernel = "radial", gamma = 10^(-3:1), cost = 10^(-2:1), validation.x = validationset[,!names(validationset) %in% c("class")], validation.y = validationset[,c("class")], tunecontrol = svm.tuning.control, probability = T)
 plot(svm.tuning)
 ```
 
 
 ```{r}
 svm.tuned = svm.tuning$best.model
-svm.tuned.testset.prediction = predict(svm.tuned, testset.x)
-svm.tuned.testset.confusion_matrix = table(svm.tuned.testset.prediction, testset$class)
-svm.tuned.accuracy = sum(diag(svm.tuned.testset.confusion_matrix)) / sum(svm.tuned.testset.confusion_matrix)
+svm.tuned.validation.prediction = predict(svm.tuned, validationset.x)
+svm.tuned.validation.confusion_matrix = table(svm.tuned.validation.prediction, validationset.y)
+svm.tuned.accuracy = sum(diag(svm.tuned.validation.confusion_matrix)) / sum(svm.tuned.validation.confusion_matrix)
 sprintf("Tuned SVM accuracy is %2.1f%%", (1 - svm.tuning$best.performance) * 100)
+sprintf("Best SVM parameters were ")
 ```
 
 ```{r}
 nnet.tuning.control = tune.control(sampling = 'fix', performances = T)
-nnet.tuning = tune.nnet(class ~., data = trainset, size = c(2:4), validation.x = validationset[,!names(validationset) %in% c("class")], validation.y = validationset[,c("class")], decay = c(0, 2^-2:1))
+nnet.tuning = tune.nnet(class ~., data = trainset, size = c(2:4), validation.x = validationset.x, validation.y = validationset.y, decay = c(0, 2^-2:1))
 nnet.tuned = nnet.tuning$best.model
 plot(nnet.tuning)
 ```
@@ -171,21 +174,21 @@ predictions = predict(nnet.tuning$best.model, testset.x)
 predictions.classes = class.names[max.col(predictions)]
 errors = predictions.classes != testset.y
 acc = length(which(errors))/length(errors)
-nnet.tuned.testset.predictions = predictions.classes
-nnet.tuned.testset.confusion_matrix = table(nnet.tuned.testset.predictions, testset.y)
+nnet.tuned.validation.predictions = predictions.classes
+nnet.tuned.validation.confusion_matrix = table(nnet.tuned.validation.predictions, testset.y)
 ```
 
 ## Confronto modelli
 
 ```{r}
-svm.tuned.testset.predictions = predict(svm.tuned, testset.x, probability = T)
-svm.tuned.testset.predictions.probs = attr(svm.tuned.testset.predictions, "probabilities")
-svm.roc = multiclass.roc(testset.y, svm.tuned.testset.predictions.probs)
+svm.tuned.validation.predictions = predict(svm.tuned, validationset.x, probability = T)
+svm.tuned.validation.predictions.probs = attr(svm.tuned.validation.predictions, "probabilities")
+svm.roc = multiclass.roc(validationset.y, svm.tuned.validation.predictions.probs)
 ```
 
 ```{r}
-nnet.tuned.testset.predictions = predict(nnet.tuning$best.model, testset.x, probability = T)
-nnet.roc = multiclass.roc(testset.y, nnet.tuned.testset.predictions)
+nnet.tuned.validation.predictions = predict(nnet.tuned, validationset.x, probability = T)
+nnet.roc = multiclass.roc(validationset.y, nnet.tuned.validation.predictions)
 ```
 
 
@@ -204,7 +207,7 @@ for (cls in class.names){
 }
 total_instances_count = Reduce('+', weights)
 weights = mapply('/', weights, total_instances_count)
-fscores = compute_f_scores(class.names, svm.tuned.testset.confusion_matrix, weights)
+fscores = compute_f_scores(class.names, svm.tuned.validation.confusion_matrix, weights)
 
 svm.macro.fscore = Reduce('+', fscores$fscores) / length(class.names)
 svm.micro.fscore = Reduce('+', fscores$fscores.weighted)
@@ -214,7 +217,7 @@ sprintf("SVM micro F-Score: %1.3f", svm.micro.fscore)
 ```
 
 ```{r}
-fscores = compute_f_scores(class.names, nnet.tuned.testset.confusion_matrix, weights)
+fscores = compute_f_scores(class.names, nnet.tuned.validation.confusion_matrix, weights)
 nnet.macro.fscore = Reduce('+', fscores$fscores) / length(class.names)
 nnet.micro.fscore = Reduce('+', fscores$fscores.weighted)
 sprintf("NNet macro F-Score: %1.3f", nnet.macro.fscore)
@@ -382,6 +385,27 @@ plot(2:6, similarity, type="b", main = "Similarity plot for ascending K", xlab="
 ```
 
 ```{r}
+library(rpart);
+decisionTree = rpart(class ~ Dim.1 + Dim.2 + Dim.3 + Dim.4, data = trainset, method = "class", control = rpart.control(cp = 1e-3))
+decisionTree.prediction = predict(decisionTree, validationset, type = "class")
+decisionTree.conf = table(decisionTree.prediction, validationset[,c("class")])
+decisionTree.conf
+acc = sum(diag(decisionTree.conf))/sum(decisionTree.conf)
+plotcp(decisionTree)
+```
 
+
+```{r}
+prunedTree = prune(decisionTree, cp = .02)
+prunedTree.prediction = predict(prunedTree, validationset, type = "class")
+prunedTree.conf = table(prunedTree.prediction, validationset[,c("class")])
+prunedTree.conf
+acc = sum(diag(prunedTree.conf))/sum(prunedTree.conf)
+
+```
+
+```{r}
+fancyRpartPlot(decisionTree)
+fancyRpartPlot(prunedTree)
 ```
 
