@@ -15,7 +15,8 @@ library(factoextra); # For PCA
 library(caret); # For feature plots
 library(e1071); # For SVM
 library(nnet); # For Neural nets
-library(pROC);
+library(pROC); # For ROC
+library(multiROC) # For multiclass ROC
 
 library(cluster) # For k-means
 library(fpc) # For k-means
@@ -180,6 +181,7 @@ print(nnet.tuned.validation.confusion_matrix)
 svm.tuned.validation.predictions = predict(svm.tuned, validationset.x, probability = T)
 svm.tuned.validation.predictions.probs = attr(svm.tuned.validation.predictions, "probabilities")
 svm.roc = multiclass.roc(validationset.y, svm.tuned.validation.predictions.probs)
+
 ```
 
 ```{r}
@@ -187,11 +189,71 @@ nnet.tuned.validation.predictions = predict(nnet.tuned, validationset.x, probabi
 nnet.roc = multiclass.roc(validationset.y, nnet.tuned.validation.predictions)
 ```
 
-
 ```{r}
 sprintf("SVM ROC AUC: %f", svm.roc$auc)
 sprintf("NNET ROC AUC: %f", nnet.roc$auc)
 ```
+
+```{r}
+# MultiROC
+
+validationset.multiroc = data.frame(matrix(ncol=18, nrow=0))
+
+for (i in 1:length(validationset.y)) {
+    row = matrix(0, 1, 6)
+    row[validationset.y[i]] = 1
+    for (j in 1:6)
+        row = c(row, svm.tuned.validation.predictions.probs[i, class.names[j]])
+    row = c(row, nnet.tuned.validation.predictions[i,])
+    validationset.multiroc = rbind(validationset.multiroc, row)
+}
+colnames(validationset.multiroc) = c('red_true', 'cotton_true', 'grey_true', 'damp grey_true', 'vegetation_true', 'very damp grey_true',
+                                     'red_pred_SVM', 'cotton_pred_SVM', 'grey_pred_SVM', 'damp grey_pred_SVM', 'vegetation_pred_SVM', 'very damp grey_pred_SVM',
+                                     'red_pred_NN', 'cotton_pred_NN', 'grey_pred_NN', 'damp grey_pred_NN', 'vegetation_pred_NN', 'very damp grey_pred_NN')
+
+svm.nnet.multiroc <- multi_roc(validationset.multiroc, force_diag=T)
+unlist(svm.nnet.multiroc$AUC)
+
+```
+
+
+```{r}
+# MultiROC plotting
+
+n_method <- length(unique(svm.nnet.multiroc$Methods))
+n_group <- length(unique(svm.nnet.multiroc$Groups))
+res_df <- data.frame(Specificity= numeric(0), Sensitivity= numeric(0), Group = character(0), AUC = numeric(0), Method = character(0))
+
+for (i in 1:n_method) {
+      for (j in 1:n_group) {
+        temp_data_1 <- data.frame(Specificity=svm.nnet.multiroc$Specificity[[i]][j],
+                                  Sensitivity=svm.nnet.multiroc$Sensitivity[[i]][j],
+                                  Group=unique(svm.nnet.multiroc$Groups)[j],
+                                  AUC=svm.nnet.multiroc$AUC[[i]][j],
+                                  Method = unique(svm.nnet.multiroc$Methods)[i])
+        colnames(temp_data_1) <- c("Specificity", "Sensitivity", "Group", "AUC", "Method")
+        res_df <- rbind(res_df, temp_data_1)
+
+      }
+      temp_data_2 <- data.frame(Specificity=svm.nnet.multiroc$Specificity[[i]][n_group+1],
+                                Sensitivity=svm.nnet.multiroc$Sensitivity[[i]][n_group+1],
+                                Group= "Macro",
+                                AUC=svm.nnet.multiroc$AUC[[i]][n_group+1],
+                                Method = unique(svm.nnet.multiroc$Methods)[i])
+      temp_data_3 <- data.frame(Specificity=svm.nnet.multiroc$Specificity[[i]][n_group+2],
+                                Sensitivity=svm.nnet.multiroc$Sensitivity[[i]][n_group+2],
+                                Group= "Micro",
+                                AUC=svm.nnet.multiroc$AUC[[i]][n_group+2],
+                                Method = unique(svm.nnet.multiroc$Methods)[i])
+      colnames(temp_data_2) <- c("Specificity", "Sensitivity", "Group", "AUC", "Method")
+      colnames(temp_data_3) <- c("Specificity", "Sensitivity", "Group", "AUC", "Method")
+      res_df <- rbind(res_df, temp_data_2)
+      res_df <- rbind(res_df, temp_data_3)
+}
+
+ggplot2::ggplot(res_df, ggplot2::aes(x = 1-Specificity, y=Sensitivity)) + ggplot2::geom_path(ggplot2::aes(color = Group, linetype=Method)) + ggplot2::geom_segment(ggplot2::aes(x = 0, y = 0, xend = 1, yend = 1), colour='grey', linetype = 'dotdash') + ggplot2::theme_bw() + ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5), legend.justification=c(1, 0), legend.position=c(.95, .05), legend.title=ggplot2::element_blank(), legend.background = ggplot2::element_rect(fill=NULL, size=0.5, linetype="solid", colour ="black"))
+```
+
 ## Calcolo metriche
 ```{r}
 source("compute_f_scores.R")
@@ -223,8 +285,6 @@ print(per_class_metrics)
 ```{r}
 trainset.clustering = dataset.input.pca
 labels = dataset.pca[1]
-labels.names = c('red soil', 'cotton crop', 'grey soil', 'damp grey soil',
-                 'soil with vegetation stubble', 'very damp grey soil')
 
 # dataframe to vector conversion
 labels.list <- c()
@@ -247,27 +307,6 @@ SW = sapply(nk, function(k){cluster.stats(dist(trainset.clustering),
 #SW
 plot(nk, SW, type="l", xlab="number of clusters", ylab="average silhouette")
 ```
-
-```{r}
-# Scelta dei parametri di seed e nstart
-
-# Il valore ottimale per nstart e' stato individuato in 5, che garantisce un'ottima misura di stabilita' dell'algorimto, con una bassa influenza del seed iniziale rispetto alla suddivisione in clusterr del dataset
-
-# Di seguito e' mostrato come i diversi valori di seed (scelti in maniera random), non influenzino la misura di silhouette
-Z <- array(sample(1:100, 20, replace=T), c(20, 1))
-silhouettes <- c()
-for(i in 1:20) {
-    set.seed(Z[i])
-    fit = kmeans(trainset.clustering, 3, nstart=5)
-    ss = silhouette(fit$cluster, dist(trainset.clustering))
-    silhouettes = append(silhouettes, mean(ss[, 3]))
-    # print(sprintf("Seed %2d: %f", Z[i], mean(ss[, 3])))
-}
-plot(Z, silhouettes, type="b", main = "Silhouette plot with different random seeds", xlab="seeds")
-set.seed(1)
-
-```
-
 
 ### K=6
 Pur ottenendo una misura minore di Silhouette in confronto a k=3, e' stato comunque ritenuto opportuno analizzare i risultati ottenuti tramite l'esecuzioe con parametro k=6, che rappresenta il numero delle classi, e di conseguenza porta ad una maggiore misura di similarita' tra i cluster rilevati da k-means e l'effettiva suddivisione in classi del dataset
@@ -312,8 +351,16 @@ source("clustering_confusion_matrix.R")
 confusion_matrix = clustering_confusion_matrix(fit$cluster, labels.list, 6, 6)
 
 for (i in 1:6) {
-    pie_title = sprintf("Pie chart for Cluster %d", i)
-    pie(confusion_matrix[i,], main=pie_title, labels=labels.names, col=rainbow(6))
+    pie_title = sprintf("Cluster %d Distribution", i)
+    pie(confusion_matrix[i,], main=pie_title, labels=class.names, col=rainbow(6))
+}
+```
+
+```{r}
+# 
+for (i in 1:6) {
+    pie_title = sprintf("Class %s Distribution", class.names[i])
+    pie(confusion_matrix[,i], main=pie_title, labels=1:6, col=rainbow(6))
 }
 ```
 
@@ -359,8 +406,16 @@ source("clustering_confusion_matrix.R")
 confusion_matrix = clustering_confusion_matrix(fit$cluster, labels.list, 3, 6)
 
 for (i in 1:3) {
-    pie_title = sprintf("Pie chart for Cluster %d", i)
-    pie(confusion_matrix[i,], main=pie_title, labels=labels.names, col=rainbow(6))
+    pie_title = sprintf("Cluster %d Disribution", i)
+    pie(confusion_matrix[i,], main=pie_title, labels=class.names, col=rainbow(6))
+}
+```
+
+```{r}
+# 
+for (i in 1:6) {
+    pie_title = sprintf("Class %s Distribution", class.names[i])
+    pie(confusion_matrix[,i], main=pie_title, labels=1:6, col=rainbow(3))
 }
 ```
 
