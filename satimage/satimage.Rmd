@@ -148,7 +148,7 @@ svm.tuned.validation.prediction = predict(svm.tuned, validationset.x)
 svm.tuned.validation.confusion_matrix = table(svm.tuned.validation.prediction, validationset.y)
 svm.tuned.accuracy = sum(diag(svm.tuned.validation.confusion_matrix)) / sum(svm.tuned.validation.confusion_matrix)
 sprintf("Tuned SVM accuracy is %2.1f%%", (1 - svm.tuning$best.performance) * 100)
-sprintf("Best SVM parameters were gamma: %d cost: %d", svm.tuning$best.parameters$gamma, svm.tuning$best.parameters$cost)
+sprintf("Best SVM parameters were gamma: %3.0f cost: %3.0f", svm.tuning$best.parameters$gamma, svm.tuning$best.parameters$cost)
 print(svm.tuned.validation.confusion_matrix)
 ```
 
@@ -207,9 +207,9 @@ for (i in 1:length(validationset.y)) {
     row = c(row, nnet.tuned.validation.predictions[i,])
     validationset.multiroc = rbind(validationset.multiroc, row)
 }
-colnames(validationset.multiroc) = c('red_true', 'cotton_true', 'grey_true', 'damp grey_true', 'vegetation_true', 'very damp grey_true',
-                                     'red_pred_SVM', 'cotton_pred_SVM', 'grey_pred_SVM', 'damp grey_pred_SVM', 'vegetation_pred_SVM', 'very damp grey_pred_SVM',
-                                     'red_pred_NN', 'cotton_pred_NN', 'grey_pred_NN', 'damp grey_pred_NN', 'vegetation_pred_NN', 'very damp grey_pred_NN')
+colnames(validationset.multiroc) = c('red_soil_true', 'cotton_crop_true', 'grey_soil_true', 'damp_grey_soil_true', 'vegetation_true', 'very_damp grey_soil_true',
+                                     'red_soil_pred_SVM', 'cotton_crop_pred_SVM', 'grey_soil_pred_SVM', 'damp_grey_soil_pred_SVM', 'vegetation_pred_SVM', 'very_damp grey_soil_pred_SVM',
+                                     'red_soil_pred_NN', 'cotton_crop_pred_NN', 'grey_soil_pred_NN', 'damp_grey_soil_pred_NN', 'vegetation_pred_NN', 'very_damp grey_soil_pred_NN')
 
 svm.nnet.multiroc <- multi_roc(validationset.multiroc, force_diag=T)
 unlist(svm.nnet.multiroc$AUC)
@@ -222,36 +222,24 @@ unlist(svm.nnet.multiroc$AUC)
 
 n_method <- length(unique(svm.nnet.multiroc$Methods))
 n_group <- length(unique(svm.nnet.multiroc$Groups))
-res_df <- data.frame(Specificity= numeric(0), Sensitivity= numeric(0), Group = character(0), AUC = numeric(0), Method = character(0))
 
-for (i in 1:n_method) {
-      for (j in 1:n_group) {
-        temp_data_1 <- data.frame(Specificity=svm.nnet.multiroc$Specificity[[i]][j],
-                                  Sensitivity=svm.nnet.multiroc$Sensitivity[[i]][j],
-                                  Group=unique(svm.nnet.multiroc$Groups)[j],
-                                  AUC=svm.nnet.multiroc$AUC[[i]][j],
-                                  Method = unique(svm.nnet.multiroc$Methods)[i])
+for (i in 1:n_group) {
+      res_df <- data.frame(Specificity= numeric(0), Sensitivity= numeric(0), Group = character(0), AUC = numeric(0), Method = character(0))
+      for (j in 1:n_method) {
+        temp_data_1 <- data.frame(Specificity=svm.nnet.multiroc$Specificity[[j]][i],
+                                  Sensitivity=svm.nnet.multiroc$Sensitivity[[j]][i],
+                                  Group=tools::toTitleCase(gsub("_", " ", unique(svm.nnet.multiroc$Groups)[i])),
+                                  AUC=svm.nnet.multiroc$AUC[[j]][i],
+                                  Method = unique(svm.nnet.multiroc$Methods)[j])
         colnames(temp_data_1) <- c("Specificity", "Sensitivity", "Group", "AUC", "Method")
         res_df <- rbind(res_df, temp_data_1)
 
       }
-      temp_data_2 <- data.frame(Specificity=svm.nnet.multiroc$Specificity[[i]][n_group+1],
-                                Sensitivity=svm.nnet.multiroc$Sensitivity[[i]][n_group+1],
-                                Group= "Macro",
-                                AUC=svm.nnet.multiroc$AUC[[i]][n_group+1],
-                                Method = unique(svm.nnet.multiroc$Methods)[i])
-      temp_data_3 <- data.frame(Specificity=svm.nnet.multiroc$Specificity[[i]][n_group+2],
-                                Sensitivity=svm.nnet.multiroc$Sensitivity[[i]][n_group+2],
-                                Group= "Micro",
-                                AUC=svm.nnet.multiroc$AUC[[i]][n_group+2],
-                                Method = unique(svm.nnet.multiroc$Methods)[i])
-      colnames(temp_data_2) <- c("Specificity", "Sensitivity", "Group", "AUC", "Method")
-      colnames(temp_data_3) <- c("Specificity", "Sensitivity", "Group", "AUC", "Method")
-      res_df <- rbind(res_df, temp_data_2)
-      res_df <- rbind(res_df, temp_data_3)
+      
+      print(ggplot2::ggplot(res_df, ggplot2::aes(x = 1-Specificity, y=Sensitivity)) + ggplot2::geom_path(ggplot2::aes(color = Group, linetype=Method)) + ggplot2::geom_segment(ggplot2::aes(x = 0, y = 0, xend = 1, yend = 1), colour='grey', linetype = 'dotdash') + ggplot2::theme_bw() + ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5), legend.justification=c(1, 0), legend.position=c(.95, .05), legend.title=ggplot2::element_blank(), legend.background = ggplot2::element_rect(fill=NULL, size=0.5, linetype="solid", colour ="black")))
+    
 }
 
-ggplot2::ggplot(res_df, ggplot2::aes(x = 1-Specificity, y=Sensitivity)) + ggplot2::geom_path(ggplot2::aes(color = Group, linetype=Method)) + ggplot2::geom_segment(ggplot2::aes(x = 0, y = 0, xend = 1, yend = 1), colour='grey', linetype = 'dotdash') + ggplot2::theme_bw() + ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5), legend.justification=c(1, 0), legend.position=c(.95, .05), legend.title=ggplot2::element_blank(), legend.background = ggplot2::element_rect(fill=NULL, size=0.5, linetype="solid", colour ="black"))
 ```
 
 ## Calcolo metriche
@@ -288,14 +276,7 @@ labels = dataset.pca[1]
 
 # dataframe to vector conversion
 labels.list <- c()
-for(i in 1:nrow(labels)){
-  if(labels[i,1] == labels.names[1]) labels.list = append(labels.list, 1)
-  if(labels[i,1] == labels.names[2]) labels.list = append(labels.list, 2)
-  if(labels[i,1] == labels.names[3]) labels.list = append(labels.list, 3)
-  if(labels[i,1] == labels.names[4]) labels.list = append(labels.list, 4)
-  if(labels[i,1] == labels.names[5]) labels.list = append(labels.list, 5)
-  if(labels[i,1] == labels.names[6]) labels.list = append(labels.list, 6)
-}
+labels.list = match(as.factor(labels$class), class.names)
 
 ```
 
