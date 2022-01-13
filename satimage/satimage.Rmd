@@ -1,9 +1,9 @@
 ---
 title: "Satimage"
 output:
-  html_notebook: default
   html_document:
     df_print: paged
+  html_notebook: default
   pdf_document: default
 ---
 
@@ -22,6 +22,8 @@ library(fpc) # For k-means
 library(seriation) # For k-means
 library(ggpubr) # For clustering visualization
 library(TSclust) # For clustering Evaluation
+
+library(knitr); # For table printing
 ```
 
 ```{r}
@@ -80,6 +82,7 @@ featurePlot(dataset.input[, c("p5.Green", "p2.Green", "p8.Green")], dataset.outp
 featurePlot(dataset.input[, c("p5.Red", "p2.Red", "p8.Red")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
 featurePlot(dataset.input[, c("p5.NIR1", "p2.NIR1", "p8.NIR1")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
 ```
+
 ## PCA
 Data la correlazione rilevata precedentemente e l'alto numero di attributi in input sembra più che opportuno eseguire una PCA sul dataset al fine di ridurre la dimensione dello spazio di input.
 ```{r}
@@ -129,17 +132,7 @@ validationset.x = validationset[,!names(validationset) %in% c("class")]
 validationset.y =  validationset[,c("class")]
 ```
 
-
-```{r}
-# Train a svm model
-#svm.model = svm(class ~ Dim.1 + Dim.2 + Dim.3 + Dim.4, data = trainset, kernel = 'radial', cost = 1)
-
-# Predict the labels and create the confusion matrix
-#svm.prediction = predict(svm.model, testset)
-#svm.table = table(svm.prediction, testset$class)
-#svm.accuracy = sum(diag(svm.table)) / sum(svm.table)
-
-```
+## SVM Training
 
 ```{r}
 svm.tuning.control = tune.control(sampling = "fix")
@@ -154,7 +147,8 @@ svm.tuned.validation.prediction = predict(svm.tuned, validationset.x)
 svm.tuned.validation.confusion_matrix = table(svm.tuned.validation.prediction, validationset.y)
 svm.tuned.accuracy = sum(diag(svm.tuned.validation.confusion_matrix)) / sum(svm.tuned.validation.confusion_matrix)
 sprintf("Tuned SVM accuracy is %2.1f%%", (1 - svm.tuning$best.performance) * 100)
-sprintf("Best SVM parameters were ")
+sprintf("Best SVM parameters were gamma: %d cost: %d", svm.tuning$best.parameters$gamma, svm.tuning$best.parameters$cost)
+print(svm.tuned.validation.confusion_matrix)
 ```
 
 ```{r}
@@ -167,6 +161,7 @@ plot(nnet.tuning)
 ```{r}
 acc = 1 - nnet.tuning$best.performance
 sprintf("Tuned neuralnet overall accuracy is %2.1f%%", acc * 100)
+sprintf("Tuned neuralnet best parameters were size: %d decay: %d", nnet.tuning$best.parameters$size, nnet.tuning$best.parameters$decay)
 ```
 
 ```{r}
@@ -176,6 +171,7 @@ errors = predictions.classes != testset.y
 acc = length(which(errors))/length(errors)
 nnet.tuned.validation.predictions = predictions.classes
 nnet.tuned.validation.confusion_matrix = table(nnet.tuned.validation.predictions, testset.y)
+print(nnet.tuned.validation.confusion_matrix)
 ```
 
 ## Confronto modelli
@@ -214,15 +210,12 @@ svm.micro.fscore = Reduce('+', fscores$fscores.weighted)
 
 sprintf("SVM macro F-Score: %1.3f", svm.macro.fscore)
 sprintf("SVM micro F-Score: %1.3f", svm.micro.fscore)
-```
 
-```{r}
-fscores = compute_f_scores(class.names, nnet.tuned.validation.confusion_matrix, weights)
-nnet.macro.fscore = Reduce('+', fscores$fscores) / length(class.names)
-nnet.micro.fscore = Reduce('+', fscores$fscores.weighted)
-sprintf("NNet macro F-Score: %1.3f", nnet.macro.fscore)
-sprintf("Net micro F-Score: %1.3f", nnet.micro.fscore)
-
+per_class_metrics = data.frame("Precision" = unname(unlist(fscores$precisions)), "Recall" = unname(unlist(fscores$recalls)), "Fscore" = unname(unlist(fscores$fscores)))
+rownames(per_class_metrics) = names(fscores$precisions)
+per_class_metrics$Precision = per_class_metrics$Precision * 100
+per_class_metrics$Recall = per_class_metrics$Recall * 100
+print(per_class_metrics)
 ```
 
 ## Clustering
@@ -409,3 +402,16 @@ fancyRpartPlot(decisionTree)
 fancyRpartPlot(prunedTree)
 ```
 
+```{r}
+fscores = compute_f_scores(class.names, nnet.tuned.validation.confusion_matrix, weights)
+nnet.macro.fscore = Reduce('+', fscores$fscores) / length(class.names)
+nnet.micro.fscore = Reduce('+', fscores$fscores.weighted)
+sprintf("NNet macro F-Score: %1.3f", nnet.macro.fscore)
+sprintf("Net micro F-Score: %1.3f", nnet.micro.fscore)
+
+per_class_metrics = data.frame("Precision" = unname(unlist(fscores$precisions)), "Recall" = unname(unlist(fscores$recalls)), "Fscore" = unname(unlist(fscores$fscores)))
+rownames(per_class_metrics) = names(fscores$precisions)
+per_class_metrics$Precision = per_class_metrics$Precision * 100
+per_class_metrics$Recall = per_class_metrics$Recall * 100
+print(per_class_metrics)
+```
