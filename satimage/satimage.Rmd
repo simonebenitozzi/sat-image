@@ -9,13 +9,15 @@ output:
 
 
 ```{r}
-library(ggplot2); # For some graphs
-library(FactoMineR); # For PCA
-library(factoextra); # For PCA
-library(caret); # For feature plots
-library(e1071); # For SVM
-library(nnet); # For Neural nets
-library(pROC); # For ROC
+# TODO: aggiungere gli install packages
+
+library(ggplot2) # For some graphs
+library(FactoMineR) # For PCA
+library(factoextra) # For PCA
+library(caret) # For feature plots
+library(e1071) # For SVM
+library(nnet) # For Neural nets
+library(pROC) # For ROC
 library(multiROC) # For multiclass ROC
 
 library(cluster) # For k-means
@@ -66,7 +68,7 @@ dataset.quantile = sapply(dataset.input, quantile)
 class.frequencies = data.frame(table(dataset.output))
 colnames(class.frequencies) = c("class", "frequencies")
 class.frequencies$percentages = paste(format((class.frequencies$frequencies / sum(class.frequencies$frequencies)) * 100, digits = 2), "%", sep = "")
-ggplot(data = class.frequencies, aes(x = class, y = frequencies, fill = class)) + geom_bar(stat = "identity") + geom_text(aes(label = percentages), vjust = 1.5, colour = "white")
+ggplot(data = class.frequencies, aes(x = class, y = frequencies, fill = class)) + geom_bar(stat = "identity") + geom_text(aes(label = percentages), vjust = 1.5, colour = "white") + theme(axis.text.x=element_blank())
 ggplot(data = class.frequencies, aes(x = "", y = frequencies, fill = class)) + geom_bar(stat = "identity", width = 1, color = "white") + coord_polar("y", start = 0)
 ```
 ## Separabilità
@@ -116,108 +118,75 @@ indexes = sample(2, nrow(dataset.pca), replace = TRUE, prob = c(0.7, 0.3))
 temp.trainset = dataset.pca[indexes == 1,]
 testset = dataset.pca[indexes == 2,]
 testset.x = testset[, !names(testset) %in% c("class")]
-testset.y = testset[,c("class")]
+testset.y = testset[, c("class")]
 
-```
-
-
-```{r}
 # Divide the trainset to obtain a validationset
 indexes = sample(2, nrow(temp.trainset), replace = TRUE, prob = c(0.9, 0.1))
 trainset = temp.trainset[indexes == 1,]
 validationset = temp.trainset[indexes == 2,]
-validationset.x = validationset[,!names(validationset) %in% c("class")]
-validationset.y =  validationset[,c("class")]
-```
-
-
-```{r}
-# Train a svm model
-#svm.model = svm(class ~ Dim.1 + Dim.2 + Dim.3 + Dim.4, data = trainset, kernel = 'radial', cost = 1)
-
-# Predict the labels and create the confusion matrix
-#svm.prediction = predict(svm.model, testset)
-#svm.table = table(svm.prediction, testset$class)
-#svm.accuracy = sum(diag(svm.table)) / sum(svm.table)
-
+validationset.x = validationset[, !names(validationset) %in% c("class")]
+validationset.y =  validationset[, c("class")]
 ```
 
 ```{r}
-svm.tuning.control = tune.control(sampling = "fix")
-svm.tuning = tune.svm(class ~ ., data = trainset, kernel = "radial", gamma = 10^(-3:1), cost = 10^(-2:1), validation.x = validationset[,!names(validationset) %in% c("class")], validation.y = validationset[,c("class")], tunecontrol = svm.tuning.control, probability = T)
+# Train a SVM model and tune the hyperparameters (cost and gamma)
+svm.tuning.control = tune.control(sampling = "fix") # To use validationset instead
+svm.tuning = tune.svm(class ~ Dim.1 + Dim.2 + Dim.3 + Dim.4, data = trainset, kernel = "radial", gamma = 10^(-3:1), cost = 10^(-2:1), validation.x = validationset.x, validation.y = validationset.y, tunecontrol = svm.tuning.control, probability = TRUE)
 plot(svm.tuning)
 ```
 
-
 ```{r}
+# Determine some metrics for each class
 svm.tuned = svm.tuning$best.model
-svm.tuned.validation.prediction = predict(svm.tuned, validationset.x)
-svm.tuned.validation.confusion_matrix = table(svm.tuned.validation.prediction, validationset.y)
-svm.tuned.accuracy = sum(diag(svm.tuned.validation.confusion_matrix)) / sum(svm.tuned.validation.confusion_matrix)
-sprintf("Tuned SVM accuracy is %2.1f%%", (1 - svm.tuning$best.performance) * 100)
-sprintf("Best SVM parameters were ")
+svm.tuned.prediction = predict(svm.tuned, testset.x)
+svm.tuned.prediction.probs = attr(svm.tuned.prediction, "probabilities")
+svm.tuned.result = confusionMatrix(svm.tuned.prediction, testset.y, mode = "prec_recall")
+sprintf("Tuned SVM global accuracy is %2.1f", svm.tuned.result$overall["Accuracy"])
+sprintf("Tuned SVM metrics by class:")
+svm.tuned.result$byClass
 ```
 
 ```{r}
-nnet.tuning.control = tune.control(sampling = 'fix', performances = T)
-nnet.tuning = tune.nnet(class ~., data = trainset, size = c(2:4), validation.x = validationset.x, validation.y = validationset.y, decay = c(0, 2^-2:1))
-nnet.tuned = nnet.tuning$best.model
+# Train a NNET model and tune the hyperparameters (size and decay)
+nnet.tuning.control = tune.control(sampling = 'fix')
+nnet.tuning = tune.nnet(class ~ Dim.1 + Dim.2 + Dim.3 + Dim.4, data = trainset, size = c(2:4), validation.x = validationset.x, validation.y = validationset.y, decay = c(0, 2^-2:1), probability = TRUE)
 plot(nnet.tuning)
 ```
 
 ```{r}
-acc = 1 - nnet.tuning$best.performance
-sprintf("Tuned neuralnet overall accuracy is %2.1f%%", acc * 100)
-```
-
-```{r}
-predictions = predict(nnet.tuning$best.model, testset.x)
-predictions.classes = class.names[max.col(predictions)]
-errors = predictions.classes != testset.y
-acc = length(which(errors))/length(errors)
-nnet.tuned.validation.predictions = predictions.classes
-nnet.tuned.validation.confusion_matrix = table(nnet.tuned.validation.predictions, testset.y)
+# Determine some metrics for each class
+nnet.tuned = nnet.tuning$best.model
+nnet.tuned.prediction = factor(predict(nnet.tuned, testset.x, type = "class"), levels = class.names)
+nnet.tuned.result = confusionMatrix(nnet.tuned.prediction, testset.y, mode = "prec_recall")
+sprintf("Tuned NNET global accuracy is %2.1f", nnet.tuned.result$overall["Accuracy"])
+sprintf("Tuned NNET metrics by class:")
+nnet.tuned.result$byClass
 ```
 
 ## Confronto modelli
 
 ```{r}
-svm.tuned.validation.predictions = predict(svm.tuned, validationset.x, probability = T)
-svm.tuned.validation.predictions.probs = attr(svm.tuned.validation.predictions, "probabilities")
-svm.roc = multiclass.roc(validationset.y, svm.tuned.validation.predictions.probs)
+# Predice la classe più probabile
+svm.tuned.predictions = predict(svm.tuned, testset.x, probability = TRUE)
+svm.tuned.predictions.probs = attr(svm.tuned.predictions, "probabilities")
 
-```
+nnet.tuned.predictions = predict(nnet.tuned, testset.x, probability = TRUE)
 
-```{r}
-nnet.tuned.validation.predictions = predict(nnet.tuned, validationset.x, probability = T)
-nnet.roc = multiclass.roc(validationset.y, nnet.tuned.validation.predictions)
-```
-
-```{r}
-sprintf("SVM ROC AUC: %f", svm.roc$auc)
-sprintf("NNET ROC AUC: %f", nnet.roc$auc)
-```
-
-```{r}
 # MultiROC
+testset.multiroc = data.frame(matrix(ncol=18, nrow=0))
 
-validationset.multiroc = data.frame(matrix(ncol=18, nrow=0))
-
-for (i in 1:length(validationset.y)) {
+for (i in 1:length(testset.y)) {
     row = matrix(0, 1, 6)
-    row[validationset.y[i]] = 1
+    row[testset.y[i]] = 1
     for (j in 1:6)
-        row = c(row, svm.tuned.validation.predictions.probs[i, class.names[j]])
-    row = c(row, nnet.tuned.validation.predictions[i,])
-    validationset.multiroc = rbind(validationset.multiroc, row)
+        row = c(row, svm.tuned.predictions.probs[i, class.names[j]])
+    row = c(row, nnet.tuned.predictions[i,])
+    testset.multiroc = rbind(testset.multiroc, row)
 }
-colnames(validationset.multiroc) = c('red_true', 'cotton_true', 'grey_true', 'damp grey_true', 'vegetation_true', 'very damp grey_true',
-                                     'red_pred_SVM', 'cotton_pred_SVM', 'grey_pred_SVM', 'damp grey_pred_SVM', 'vegetation_pred_SVM', 'very damp grey_pred_SVM',
-                                     'red_pred_NN', 'cotton_pred_NN', 'grey_pred_NN', 'damp grey_pred_NN', 'vegetation_pred_NN', 'very damp grey_pred_NN')
+colnames(testset.multiroc) = c('red_true', 'cotton_true', 'grey_true', 'damp grey_true', 'vegetation_true', 'very damp grey_true', 'red_pred_SVM', 'cotton_pred_SVM', 'grey_pred_SVM', 'damp grey_pred_SVM', 'vegetation_pred_SVM', 'very damp grey_pred_SVM', 'red_pred_NN', 'cotton_pred_NN', 'grey_pred_NN', 'damp grey_pred_NN', 'vegetation_pred_NN', 'very damp grey_pred_NN')
 
-svm.nnet.multiroc <- multi_roc(validationset.multiroc, force_diag=T)
+svm.nnet.multiroc <- multi_roc(testset.multiroc, force_diag=T)
 unlist(svm.nnet.multiroc$AUC)
-
 ```
 
 
@@ -364,7 +333,7 @@ for (i in 1:6) {
 ```
 
 ```{r}
-# 
+#
 for (i in 1:6) {
     pie_title = sprintf("Class %s Distribution", class.names[i])
     pie(confusion_matrix[,i], main=pie_title, labels=1:6, col=rainbow(6))
@@ -419,7 +388,7 @@ for (i in 1:3) {
 ```
 
 ```{r}
-# 
+#
 for (i in 1:6) {
     pie_title = sprintf("Class %s Distribution", class.names[i])
     pie(confusion_matrix[,i], main=pie_title, labels=1:6, col=rainbow(3))
