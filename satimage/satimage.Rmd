@@ -142,8 +142,9 @@ plot(svm.tuning)
 # Determine some metrics for each class
 svm.tuned = svm.tuning$best.model
 svm.tuned.prediction = predict(svm.tuned, testset.x)
-svm.tuned.prediction.probs = attr(svm.tuned.prediction, "probabilities")
 svm.tuned.result = confusionMatrix(svm.tuned.prediction, testset.y, mode = "prec_recall")
+
+# TODO: how is calculated? avg, micro-avg, macro-avg?
 sprintf("Tuned SVM global accuracy is %2.1f%%", svm.tuned.result$overall["Accuracy"] * 100)
 ```
 
@@ -155,9 +156,12 @@ plot(nnet.tuning)
 ```
 
 ```{r}
+# Determine some metrics for each class
 nnet.tuned = nnet.tuning$best.model
 nnet.tuned.prediction = factor(predict(nnet.tuned, testset.x, type = "class"), levels = class.names)
 nnet.tuned.result = confusionMatrix(nnet.tuned.prediction, testset.y, mode = "prec_recall")
+
+# TODO: how is calculated? avg, micro-avg, macro-avg?
 sprintf("Tuned NNET global accuracy is %2.1f%%", nnet.tuned.result$overall["Accuracy"] * 100)
 ```
 
@@ -183,9 +187,7 @@ sprintf("SVM micro F-Score: %1.3f", svm.micro.fscore)
 print(svm.tuned.result$byClass[, metrics_of_interest])
 ```
 
-
 ```{r}
-
 # Determine some metrics for each class
 nnet.macro.fscore = Reduce('+', nnet.tuned.result$byClass[,"F1"]) / length(class.names)
 nnet.micro.fscore = Reduce('+', nnet.tuned.result$byClass[,"F1"] * nnet.tuned.result$byClass[,"Prevalence"])
@@ -194,6 +196,7 @@ sprintf("NNET micro F-Score: %1.3f", nnet.micro.fscore)
 sprintf("Tuned NNET metrics by class:")
 nnet.tuned.result$byClass[, metrics_of_interest]
 ```
+
 ```{r}
 metrics.comparison = svm.tuned.result$byClass[, metrics_of_interest] - nnet.tuned.result$byClass[, metrics_of_interest]
 print("Metrics compared, positive values favor SVM")
@@ -204,6 +207,7 @@ print(metrics.comparison)
 ```{r}
 # Predicts the most probable class class for each instance
 svm.tuned.predictions = predict(svm.tuned, testset.x, probability = TRUE)
+
 # Extracts, for each class, the probability of every instance of being of that class 
 svm.tuned.predictions.probs = attr(svm.tuned.predictions, "probabilities")
 
@@ -224,12 +228,11 @@ for (i in 1:length(testset.y)) {
     row = c(row, nnet.tuned.predictions[i,])
     testset.multiroc = rbind(testset.multiroc, row)
 }
-# Formats the dataframe to be suitable for the multi_roc function
-colnames(testset.multiroc) = c('red_soil_true', 'cotton_crop_true', 'grey_soil_true', 'damp_grey_soil_true', 'vegetation_true', 'very_damp grey_soil_true',
-                                     'red_soil_pred_SVM', 'cotton_crop_pred_SVM', 'grey_soil_pred_SVM', 'damp_grey_soil_pred_SVM', 'vegetation_pred_SVM', 'very_damp grey_soil_pred_SVM',
-                                     'red_soil_pred_NN', 'cotton_crop_pred_NN', 'grey_soil_pred_NN', 'damp_grey_soil_pred_NN', 'vegetation_pred_NN', 'very_damp grey_soil_pred_NN')
 
-svm.nnet.multiroc <- multi_roc(testset.multiroc, force_diag=T)
+# Formats the dataframe to be suitable for the multi_roc function
+colnames(testset.multiroc) = c('red_soil_true', 'cotton_crop_true', 'grey_soil_true', 'damp_grey_soil_true', 'vegetation_true', 'very_damp grey_soil_true', 'red_soil_pred_SVM', 'cotton_crop_pred_SVM', 'grey_soil_pred_SVM', 'damp_grey_soil_pred_SVM', 'vegetation_pred_SVM', 'very_damp grey_soil_pred_SVM', 'red_soil_pred_NN', 'cotton_crop_pred_NN', 'grey_soil_pred_NN', 'damp_grey_soil_pred_NN', 'vegetation_pred_NN', 'very_damp grey_soil_pred_NN')
+
+svm.nnet.multiroc = multi_roc(testset.multiroc, force_diag=T)
 print("Per class AUC values:")
 print(unlist(svm.nnet.multiroc$AUC))
 ```
@@ -237,7 +240,6 @@ print(unlist(svm.nnet.multiroc$AUC))
 
 ```{r}
 # MultiROC plotting
-
 n_method <- length(unique(svm.nnet.multiroc$Methods))
 n_group <- length(unique(svm.nnet.multiroc$Groups))
 
