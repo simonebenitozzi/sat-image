@@ -202,23 +202,29 @@ print(metrics.comparison)
 
 ### Curve ROC
 ```{r}
-# Predice la classe più probabile
+# Predicts the most probable class class for each instance
 svm.tuned.predictions = predict(svm.tuned, testset.x, probability = TRUE)
+# Extracts, for each class, the probability of every instance of being of that class 
 svm.tuned.predictions.probs = attr(svm.tuned.predictions, "probabilities")
 
+# Extracts, for each class, the probability of every instance of being of that class
 nnet.tuned.predictions = predict(nnet.tuned, testset.x, probability = TRUE)
 
-# MultiROC
+# Creates the dataframe to be used for multiroc
 testset.multiroc = data.frame(matrix(ncol=18, nrow=0))
 
 for (i in 1:length(testset.y)) {
     row = matrix(0, 1, 6)
+    # sets 1 to the correct class 
     row[testset.y[i]] = 1
     for (j in 1:6)
+        # concatenates the probabilities of the svm
         row = c(row, svm.tuned.predictions.probs[i, class.names[j]])
+    # concatenates the probabilities of the neural net
     row = c(row, nnet.tuned.predictions[i,])
     testset.multiroc = rbind(testset.multiroc, row)
 }
+# Formats the dataframe to be suitable for the multi_roc function
 colnames(testset.multiroc) = c('red_soil_true', 'cotton_crop_true', 'grey_soil_true', 'damp_grey_soil_true', 'vegetation_true', 'very_damp grey_soil_true',
                                      'red_soil_pred_SVM', 'cotton_crop_pred_SVM', 'grey_soil_pred_SVM', 'damp_grey_soil_pred_SVM', 'vegetation_pred_SVM', 'very_damp grey_soil_pred_SVM',
                                      'red_soil_pred_NN', 'cotton_crop_pred_NN', 'grey_soil_pred_NN', 'damp_grey_soil_pred_NN', 'vegetation_pred_NN', 'very_damp grey_soil_pred_NN')
@@ -235,6 +241,7 @@ print(unlist(svm.nnet.multiroc$AUC))
 n_method <- length(unique(svm.nnet.multiroc$Methods))
 n_group <- length(unique(svm.nnet.multiroc$Groups))
 
+# changes the format of results to a ggplot2 friendly format
 for (i in 1:n_group) {
       res_df <- data.frame(Specificity= numeric(0), Sensitivity= numeric(0), Group = character(0), AUC = numeric(0), Method = character(0))
       for (j in 1:n_method) {
@@ -269,6 +276,7 @@ labels.list = match(as.factor(labels$class), class.names)
 ```{r}
 set.seed(1)
 nk = 2:12
+# calculates average silhouette values for an ascending value of k
 SW = sapply(nk, function(k){cluster.stats(dist(trainset.clustering), 
                               kmeans(trainset.clustering, centers=k, nstart=5)$cluster)$avg.silwidth})
 #SW
@@ -280,7 +288,7 @@ Pur ottenendo una misura minore di Silhouette in confronto a k=3, e' stato comun
 ```{r}
 fit = kmeans(trainset.clustering, 6, nstart=5)
 
-#Silhouette
+# calculates silhouette values for k=6
 kms = silhouette(fit$cluster, dist(trainset.clustering))
 plot(kms, col=1:6, border=NA, main = "Silhouette Plot for k=6")
 
@@ -336,6 +344,7 @@ Nonostante il valore di Silhouette maggiore rispetto a k=6, il parametro k=3 por
 ```{r}
 fit = kmeans(trainset.clustering, 3, nstart=5)
 
+# calculates silhouettes values for k=3
 kms = silhouette(fit$cluster, dist(trainset.clustering))
 plot(kms, col=1:3, border=NA, main = "Silhouette Plot for k=3")
 
@@ -391,6 +400,8 @@ Evidenzia la misura di similarita' tra i cluster e le classi del dataset, al var
 Il valore piu' alto e' ottenuto con k=6, in linea con le rilevazioni precedenti
 ```{r}
 similarity = c()
+
+# Calculates the similarity between clusters and targets for an ascending value of k
 for (k in 2:6) {
     fit = kmeans(trainset.clustering, k, nstart = 5)
     eval = cluster.evaluation(labels.list, fit$cluster)
