@@ -6,7 +6,9 @@ output:
   html_notebook: default
   pdf_document: default
 ---
-
+```{r setup, include = FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+```
 
 ```{r echo=F}
 # TODO: aggiungere gli install packages
@@ -146,6 +148,7 @@ svm.tuned.result = confusionMatrix(svm.tuned.prediction, testset.y, mode = "prec
 
 # TODO: how is calculated? avg, micro-avg, macro-avg?
 sprintf("Tuned SVM global accuracy is %2.1f%%", svm.tuned.result$overall["Accuracy"] * 100)
+print(svm.tuned.result$table)
 ```
 
 ```{r}
@@ -163,6 +166,7 @@ nnet.tuned.result = confusionMatrix(nnet.tuned.prediction, testset.y, mode = "pr
 
 # TODO: how is calculated? avg, micro-avg, macro-avg?
 sprintf("Tuned NNET global accuracy is %2.1f%%", nnet.tuned.result$overall["Accuracy"] * 100)
+print(nnet.tuned.result$table)
 ```
 
 
