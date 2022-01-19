@@ -9,9 +9,9 @@ output:
 
 
 ```{r echo=F}
-# TODO: aggiungere gli install packages
 
 library(ggplot2) # For some graphs
+
 library(FactoMineR) # For PCA
 library(factoextra) # For PCA
 library(caret) # For feature plots
@@ -132,10 +132,20 @@ validationset.y =  validationset[, c("class")]
 
 ```{r}
 # Train a SVM model and tune the hyperparameters (cost and gamma)
+svm.start_time = Sys.time()
+
 svm.tuning.control = tune.control(sampling = "fix") # To use validationset instead
 svm.tuning = tune.svm(class ~ Dim.1 + Dim.2 + Dim.3 + Dim.4, data = trainset, kernel = "radial", gamma = 10^(-3:1), cost = 10^(-2:1), validation.x = validationset.x, validation.y = validationset.y, tunecontrol = svm.tuning.control, probability = TRUE)
+
+svm.end_time = Sys.time()
+sprintf("Time required for svm training:")
+svm.end_time - svm.start_time
+
+```
+```{r}
 plot(svm.tuning)
 ```
+
 
 ```{r}
 # Determine some metrics for each class
@@ -150,10 +160,19 @@ print(svm.tuned.result$table)
 
 ```{r}
 # Train a NNET model and tune the hyperparameters (size and decay)
+nnet.start_time = Sys.time()
+
 nnet.tuning.control = tune.control(sampling = 'fix')
 nnet.tuning = tune.nnet(class ~ Dim.1 + Dim.2 + Dim.3 + Dim.4, data = trainset, size = c(2:4), validation.x = validationset.x, validation.y = validationset.y, decay = c(0, 2^-2:1), probability = TRUE)
+
+nnet.end_time = Sys.time()
+sprintf("Time required for svm training:")
+nnet.end_time - nnet.start_time
+```
+```{r}
 plot(nnet.tuning)
 ```
+
 
 ```{r}
 # Determine some metrics for each class
@@ -202,6 +221,7 @@ nnet.tuned.result$byClass[, metrics_of_interest]
 metrics.comparison = svm.tuned.result$byClass[, metrics_of_interest] - nnet.tuned.result$byClass[, metrics_of_interest]
 print("Metrics compared, positive values favor SVM")
 print(metrics.comparison)
+
 ```
 
 ### Curve ROC

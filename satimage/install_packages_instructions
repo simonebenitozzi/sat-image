@@ -1,0 +1,32 @@
+
+install.packages('ggplot2', dependencies=TRUE)
+library(ggplot2) # For some graphs
+
+install.packages('FactoMineR', dependencies=TRUE)
+library(FactoMineR) # For PCA
+install.packages('factoextra', dependencies=TRUE)
+library(factoextra) # For PCA
+install.packages('caret', dependencies=TRUE)
+library(caret) # For feature plots
+install.packages('e1071', dependencies=TRUE)
+library(e1071) # For SVM
+install.packages('nnet', dependencies=TRUE)
+library(nnet) # For Neural nets
+install.packages('pROC', dependencies=TRUE)
+library(pROC) # For ROC
+install.packages('multiROC', dependencies=TRUE)
+library(multiROC) # For multiclass ROC
+
+install.packages('cluster', dependencies=TRUE)
+library(cluster) # For k-means
+install.packages('fpc', dependencies=TRUE)
+library(fpc) # For k-means
+install.packages('seriation', dependencies=TRUE)
+library(seriation) # For k-means
+install.packages('ggpubr', dependencies=TRUE)
+library(ggpubr) # For clustering visualization
+install.packages('TSclust', dependencies=TRUE)
+library(TSclust) # For clustering Evaluation
+
+install.packages('knitr', dependencies=TRUE)
+library(knitr); # For table printing
