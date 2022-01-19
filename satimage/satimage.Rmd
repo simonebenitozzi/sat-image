@@ -6,6 +6,13 @@ output:
   html_notebook: default
   pdf_document: default
 ---
+
+
+```{r echo=F}
+library(parallel)
+cores = detectCores()
+install.packages(c("ggplot2", "FactoMineR", "factoextra", "caret", "e1071", "nnet", "multiROC", "cluster", "fpc", "seriation", "ggpubr", "TSclust"), Ncpus = cores)
+```
 ```{r setup, include = FALSE}
 knitr::opts_chunk$set(cache = TRUE)
 ```
@@ -27,8 +34,6 @@ library(fpc) # For k-means
 library(seriation) # For k-means
 library(ggpubr) # For clustering visualization
 library(TSclust) # For clustering Evaluation
-
-library(knitr); # For table printing
 ```
 
 ```{r}
@@ -118,17 +123,18 @@ featurePlot(x=dataset.input.pca, y=dataset.output, plot="pairs", auto.key=list(c
 
 
 ```{r}
+
 # Divide the dataset into trainset and testset
-indexes = sample(2, nrow(dataset.pca), replace = TRUE, prob = c(0.7, 0.3))
-temp.trainset = dataset.pca[indexes == 1,]
-testset = dataset.pca[indexes == 2,]
+indexes = createDataPartition(dataset.pca$class, p = .7, list = F, times = 1)
+temp.trainset = dataset.pca[indexes,]
+testset = dataset.pca[- indexes,]
 testset.x = testset[, !names(testset) %in% c("class")]
 testset.y = testset[, c("class")]
 
 # Divide the trainset to obtain a validationset
-indexes = sample(2, nrow(temp.trainset), replace = TRUE, prob = c(0.9, 0.1))
-trainset = temp.trainset[indexes == 1,]
-validationset = temp.trainset[indexes == 2,]
+indexes = createDataPartition(temp.trainset$class, p = .9, list = F, times = 1)
+trainset = temp.trainset[indexes,]
+validationset = temp.trainset[-indexes,]
 validationset.x = validationset[, !names(validationset) %in% c("class")]
 validationset.y =  validationset[, c("class")]
 ```
