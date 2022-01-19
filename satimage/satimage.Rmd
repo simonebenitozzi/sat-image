@@ -9,15 +9,6 @@ output:
 
 
 ```{r echo=F}
-library(parallel)
-cores = detectCores()
-install.packages(c("ggplot2", "FactoMineR", "factoextra", "caret", "e1071", "nnet", "multiROC", "cluster", "fpc", "seriation", "ggpubr", "TSclust"), Ncpus = cores)
-```
-```{r setup, include = FALSE}
-knitr::opts_chunk$set(cache = TRUE)
-```
-
-```{r echo=F}
 # TODO: aggiungere gli install packages
 
 library(ggplot2) # For some graphs
