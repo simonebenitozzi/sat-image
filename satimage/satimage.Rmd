@@ -21,6 +21,7 @@ library(pROC) # For ROC
 library(multiROC) # For multiclass ROC
 
 library(cluster) # For k-means
+library(clustertend) # For Hopkins Statistic
 library(fpc) # For k-means
 library(seriation) # For k-means
 library(ggpubr) # For clustering visualization
@@ -74,14 +75,13 @@ ggplot(data = class.frequencies, aes(x = "", y = frequencies, fill = class)) + g
 ## Separabilità
 I valori relativi allo stesso canale tra pixel adiacenti risultano correlati (come evidente dai grafici), questo perche' il dataset e' costruito come una sliding window quadrata 3x3 su una singola immagine satellitare. Ci si aspetta quindi una varianza piuttosto contenuta sui singoli valori e la sopra citata correlazione.
 
-TODO: Aggiungere titoli ai featureplot
 ```{r}
-featurePlot(dataset.input[, c("p5.Red", "p5.Green", "p5.NIR1")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
-featurePlot(dataset.input[, c("p5.Red", "p6.Red", "p4.Red")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
-featurePlot(dataset.input[, c("p5.Green", "p6.Green", "p4.Green")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
-featurePlot(dataset.input[, c("p5.Green", "p2.Green", "p8.Green")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
-featurePlot(dataset.input[, c("p5.Red", "p2.Red", "p8.Red")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
-featurePlot(dataset.input[, c("p5.NIR1", "p2.NIR1", "p8.NIR1")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3))
+featurePlot(dataset.input[, c("p5.Red", "p5.Green", "p5.NIR1")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3), main="Feature plot for p5.Red, p5.Green, p5.NIR1 pairs")
+featurePlot(dataset.input[, c("p5.Red", "p6.Red", "p4.Red")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3), main="Feature plot for p5.Red, p6.Red, p4.Red pairs")
+featurePlot(dataset.input[, c("p5.Green", "p6.Green", "p4.Green")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3), main="Feature plot for p5.Green, p6.Green, p4.Green pairs")
+featurePlot(dataset.input[, c("p5.Green", "p2.Green", "p8.Green")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3), main="Feature plot for p5.Green, p2.Green, p8.Green pairs")
+featurePlot(dataset.input[, c("p5.Red", "p2.Red", "p8.Red")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3), main="Feature plot for p5.Red, p2.Red, p8.Red pairs")
+featurePlot(dataset.input[, c("p5.NIR1", "p2.NIR1", "p8.NIR1")], dataset.output, plot="pairs", scales=list((relation="free"), y=list(relation="free")), auto.key=list(columns=3), main="Feature plot for p5.NIR1, p2.NIR1, p8.NIR1 pairs")
 ```
 
 ## PCA
@@ -108,8 +108,8 @@ dataset.input.pca = data.frame(get_pca_ind(pca.results)$coord)
 dataset.pca = cbind(class=dataset$class, dataset.input.pca)
 
 # Draw some feature plot to highlight the level of difficulty to recognise the various classes
-featurePlot(x=dataset.input.pca, y=dataset.output, plot="density", scales=list(x=list(relation="free"), y=list(relation="free")), auto.key=list(columns=3))
-featurePlot(x=dataset.input.pca, y=dataset.output, plot="pairs", auto.key=list(columns=3))
+featurePlot(x=dataset.input.pca, y=dataset.output, plot="density", scales=list(x=list(relation="free"), y=list(relation="free")), auto.key=list(columns=3), main="Density Feature Plot")
+featurePlot(x=dataset.input.pca, y=dataset.output, plot="pairs", auto.key=list(columns=3), main="Pairs Feature Plot")
 ```
 
 
@@ -142,6 +142,7 @@ sprintf("Time required for svm training:")
 svm.end_time - svm.start_time
 
 ```
+
 ```{r}
 plot(svm.tuning)
 ```
@@ -153,8 +154,7 @@ svm.tuned = svm.tuning$best.model
 svm.tuned.prediction = predict(svm.tuned, testset.x)
 svm.tuned.result = confusionMatrix(svm.tuned.prediction, testset.y, mode = "prec_recall")
 
-# TODO: how is calculated? avg, micro-avg, macro-avg?
-sprintf("Tuned SVM global accuracy is %2.1f%%", svm.tuned.result$overall["Accuracy"] * 100)
+sprintf("Tuned SVM micro-average global accuracy is %2.1f%%", svm.tuned.result$overall["Accuracy"] * 100)
 print(svm.tuned.result$table)
 ```
 
@@ -180,8 +180,7 @@ nnet.tuned = nnet.tuning$best.model
 nnet.tuned.prediction = factor(predict(nnet.tuned, testset.x, type = "class"), levels = class.names)
 nnet.tuned.result = confusionMatrix(nnet.tuned.prediction, testset.y, mode = "prec_recall")
 
-# TODO: how is calculated? avg, micro-avg, macro-avg?
-sprintf("Tuned NNET global accuracy is %2.1f%%", nnet.tuned.result$overall["Accuracy"] * 100)
+sprintf("Tuned NNET micro-average global accuracy is %2.1f%%", nnet.tuned.result$overall["Accuracy"] * 100)
 print(nnet.tuned.result$table)
 ```
 
@@ -287,36 +286,97 @@ for (i in 1:n_group) {
 ## Clustering
 
 ```{r}
-trainset.clustering = dataset.input.pca
+source("clustering_metrics.R")
+dataset.clustering = dataset.input.pca
 labels = dataset.pca[1]
 
 # dataframe to vector conversion
 labels.list <- c()
 labels.list = match(as.factor(labels$class), class.names)
+```
 
+### Tendency Measures
+
+```{r}
+# Calculate Hopkins statistic for CLustering tendency
+set.seed(1)
+hopkins(dataset.clustering, n = nrow(dataset.clustering) - 1)
+
+```
+
+```{r}
+# Since the entire dataset is too big to be allocated for VAT result, only a portion of it has been given in input
+indexes = createDataPartition(dataset.pca$class, p = .2, list = F, times = 1)
+partition = dataset.pca[indexes,]
+partition.vat = partition[, !names(testset) %in% c("class")]
+
+# VAT - Visual Assessment of cluster Tendency
+fviz_dist(dist(partition.vat), show_labels = FALSE)
+
+```
+
+
+### Quality Measures
+
+# Scelta dei parametri di seed e nstart
+```{r}
+# Il valore ottimale per nstart e' stato individuato in 5, che garantisce un'ottima misura di stabilita' dell'algorimto, con una bassa influenza del seed iniziale rispetto alla suddivisione in clusterr del dataset
+
+# Di seguito e' mostrato come i diversi valori di seed (scelti in maniera casuale), non influenzino la misura di silhouette
+Z <- array(sample(1:100, 20, replace=T), c(20, 1))
+silhouettes <- c()
+for(i in 1:20) {
+    set.seed(Z[i])
+    fit = kmeans(dataset.clustering, 3, nstart=5)
+    ss = silhouette(fit$cluster, dist(dataset.clustering))
+    silhouettes = append(silhouettes, mean(ss[, 3]))
+    # print(sprintf("Seed %2d: %f", Z[i], mean(ss[, 3])))
+}
+plot(Z, silhouettes, type="b", main = "Silhouette plot with different random seeds", xlab="seeds")
+set.seed(1)
 ```
 
 ```{r}
 set.seed(1)
 nk = 2:12
+
 # calculates average silhouette values for an ascending value of k
-SW = sapply(nk, function(k){cluster.stats(dist(trainset.clustering), 
-                              kmeans(trainset.clustering, centers=k, nstart=5)$cluster)$avg.silwidth})
+SW = sapply(nk, function(k){cluster.stats(dist(dataset.clustering), 
+                              kmeans(dataset.clustering, centers=k, nstart=5)$cluster)$avg.silwidth})
 #SW
 plot(nk, SW, type="l", xlab="number of clusters", ylab="average silhouette")
 ```
 
+### Evaluation al variare di k
+Evidenzia la misura di similarita' tra i cluster e le classi del dataset, al variaaare del parametro k
+Il valore piu' alto e' ottenuto con k=6, in linea con le rilevazioni precedenti
+```{r}
+similarity = c()
+
+# Calculates the similarity between clusters and targets for an ascending value of k
+for (k in 2:6) {
+    fit = kmeans(dataset.clustering, k, nstart = 5)
+    eval = cluster.evaluation(labels.list, fit$cluster)
+    similarity = append(similarity, eval)
+}
+plot(2:6, similarity, type="b", main = "Similarity plot for ascending K", xlab="K")
+```
+
+
 ### K=6
 Pur ottenendo una misura minore di Silhouette in confronto a k=3, e' stato comunque ritenuto opportuno analizzare i risultati ottenuti tramite l'esecuzioe con parametro k=6, che rappresenta il numero delle classi, e di conseguenza porta ad una maggiore misura di similarita' tra i cluster rilevati da k-means e l'effettiva suddivisione in classi del dataset
 ```{r}
-fit = kmeans(trainset.clustering, 6, nstart=5)
+fit = kmeans(dataset.clustering, 6, nstart=5)
 
 # calculates silhouette values for k=6
-kms = silhouette(fit$cluster, dist(trainset.clustering))
+kms = silhouette(fit$cluster, dist(dataset.clustering))
 plot(kms, col=1:6, border=NA, main = "Silhouette Plot for k=6")
 
+```
+
+```{r}
 # Dissimilarity Matrix
-dissplot(dist(trainset.clustering), labels=fit$cluster, options=list(main="Kmeans clustering with k=6"))
+dissplot(dist(dataset.clustering), labels=fit$cluster, options=list(main="Kmeans clustering with k=6"))
 ```
 
 ```{r}
@@ -326,28 +386,32 @@ sprintf("Similarity with (k=6): %f", cluster.evaluation(labels.list, fit$cluster
 
 ```{r}
 # visualization
-fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(1,2), main="Dimensions: 1 & 2", 
+fviz_cluster(fit, dataset.clustering, ellipse.type = "norm", axes=c(1,2), main="Dimensions: 1 & 2", 
              geom="point")
-fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(1,3), main="Dimensions: 1 & 3", 
+fviz_cluster(fit, dataset.clustering, ellipse.type = "norm", axes=c(1,3), main="Dimensions: 1 & 3", 
              geom="point")
-fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(1,4), main="Dimensions: 1 & 4", 
-             geom="point")
-
-fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(2,3), main="Dimensions: 2 & 3", 
-             geom="point")
-fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(2,4), main="Dimensions: 2 & 4", 
+fviz_cluster(fit, dataset.clustering, ellipse.type = "norm", axes=c(1,4), main="Dimensions: 1 & 4", 
              geom="point")
 
-fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(3,4), main="Dimensions: 3 & 4", 
+fviz_cluster(fit, dataset.clustering, ellipse.type = "norm", axes=c(2,3), main="Dimensions: 2 & 3", 
+             geom="point")
+fviz_cluster(fit, dataset.clustering, ellipse.type = "norm", axes=c(2,4), main="Dimensions: 2 & 4", 
+             geom="point")
+
+fviz_cluster(fit, dataset.clustering, ellipse.type = "norm", axes=c(3,4), main="Dimensions: 3 & 4", 
              geom="point")
 ```
 
 ```{r}
 # Confusion Matrix
-source("clustering_confusion_matrix.R")
 
 confusion_matrix = clustering_confusion_matrix(fit$cluster, labels.list, 6, 6)
+colnames(confusion_matrix) = class.names
+rownames(confusion_matrix) = 1:6
+confusion_matrix
+```
 
+```{r}
 for (i in 1:6) {
     pie_title = sprintf("Cluster %d Distribution", i)
     pie(confusion_matrix[i,], main=pie_title, labels=class.names, col=rainbow(6))
@@ -361,74 +425,31 @@ for (i in 1:6) {
     pie(confusion_matrix[,i], main=pie_title, labels=1:6, col=rainbow(6))
 }
 ```
-
-### K=3
-Nonostante il valore di Silhouette maggiore rispetto a k=6, il parametro k=3 porta ad un peggioramento nella misura di similarita' tra cluster rilevati e classi del dataset
 ```{r}
-fit = kmeans(trainset.clustering, 3, nstart=5)
+source("clustering_metrics.R")
 
-# calculates silhouettes values for k=3
-kms = silhouette(fit$cluster, dist(trainset.clustering))
-plot(kms, col=1:3, border=NA, main = "Silhouette Plot for k=3")
+precisions = c()
+recalls = c()
+fmeasures = c()
 
-# Dissimilarity Matrix
-dissplot(dist(trainset.clustering), labels=fit$cluster, options=list(main="Kmeans clustering with k=3"))
-```
-
-```{r}
-# Evaluation
-sprintf("Similarity with (k=3): %f", cluster.evaluation(labels.list, fit$cluster))
-```
-
-```{r}
-# visualization
-fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(1,2), main="Dimensions: 1 & 2", 
-             geom="point")
-fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(1,3), main="Dimensions: 1 & 3", 
-             geom="point")
-fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(1,4), main="Dimensions: 1 & 4", 
-             geom="point")
-
-fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(2,3), main="Dimensions: 2 & 3", 
-             geom="point")
-fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(2,4), main="Dimensions: 2 & 4", 
-             geom="point")
-
-fviz_cluster(fit, trainset.clustering, ellipse.type = "norm", axes=c(3,4), main="Dimensions: 3 & 4", 
-             geom="point")
-```
-
-```{r}
-# Confusion Matrix
-source("clustering_confusion_matrix.R")
-
-confusion_matrix = clustering_confusion_matrix(fit$cluster, labels.list, 3, 6)
-
-for (i in 1:3) {
-    pie_title = sprintf("Cluster %d Disribution", i)
-    pie(confusion_matrix[i,], main=pie_title, labels=class.names, col=rainbow(6))
-}
-```
-
-```{r}
-#
 for (i in 1:6) {
-    pie_title = sprintf("Class %s Distribution", class.names[i])
-    pie(confusion_matrix[,i], main=pie_title, labels=1:6, col=rainbow(3))
+    precision = clustering_precision(confusion_matrix, i)
+    recall = clustering_recall(confusion_matrix, i)
+    fmeasure = (2*precision*recall) / (precision+recall)
+    
+    precisions = rbind(precisions, precision)
+    recalls = rbind(recalls, recall)
+    fmeasures = rbind(fmeasures, fmeasure)
 }
-```
 
-### Evaluation al variare di k
-Evidenzia la misura di similarita' tra i cluster e le classi del dataset, al variaaare del parametro k
-Il valore piu' alto e' ottenuto con k=6, in linea con le rilevazioni precedenti
-```{r}
-similarity = c()
+km_metrics = cbind(precisions, recalls, fmeasures)
 
-# Calculates the similarity between clusters and targets for an ascending value of k
-for (k in 2:6) {
-    fit = kmeans(trainset.clustering, k, nstart = 5)
-    eval = cluster.evaluation(labels.list, fit$cluster)
-    similarity = append(similarity, eval)
-}
-plot(2:6, similarity, type="b", main = "Similarity plot for ascending K", xlab="K")
+rownames(km_metrics) = class.names
+colnames(km_metrics) = c('precision','recall','fmeasure')
+
+accuracy = clustering_accuracy(confusion_matrix)
+sprintf("K-means (K=6) micro-average global accuracy is %2.1f%%", accuracy * 100)
+
+sprintf("Per class metrics:")
+km_metrics
 ```
