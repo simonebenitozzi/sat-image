@@ -9,7 +9,24 @@ output:
 
 
 ```{r echo=F}
+# Install all the required packages
+install.packages('ggplot2', dependencies=TRUE)
+install.packages('FactoMineR', dependencies=TRUE)
+install.packages('factoextra', dependencies=TRUE)
+install.packages('caret', dependencies=TRUE)
+install.packages('e1071', dependencies=TRUE)
+install.packages('nnet', dependencies=TRUE)
+install.packages('pROC', dependencies=TRUE)
+install.packages('multiROC', dependencies=TRUE)
+install.packages('cluster', dependencies=TRUE)
+install.packages('clustertend', dependencies=TRUE)
+install.packages('fpc', dependencies=TRUE)
+install.packages('seriation', dependencies=TRUE)
+install.packages('ggpubr', dependencies=TRUE)
+install.packages('TSclust', dependencies=TRUE)
+install.packages('knitr', dependencies=TRUE)
 
+# Load all the required packages
 library(ggplot2) # For some graphs
 
 library(FactoMineR) # For PCA
