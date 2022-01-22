@@ -192,7 +192,7 @@ print(nnet.tuned.result$table)
 In questa sezione vengono calcolate e confrontate metriche di base come sensitivity, specificity e F-scores.
 
 ```{r}
-metrics_of_interest = c("Precision", "Specificity", "F1")
+metrics_of_interest = c("Precision", "Specificity", "Recall", "F1")
 ```
 
 
