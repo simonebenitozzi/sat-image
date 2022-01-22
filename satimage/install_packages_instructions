@@ -19,6 +19,8 @@ library(multiROC) # For multiclass ROC
 
 install.packages('cluster', dependencies=TRUE)
 library(cluster) # For k-means
+install.packages('clustertend', dependencies=TRUE)
+library(clustertend) # For Hopkins Statistic
 install.packages('fpc', dependencies=TRUE)
 library(fpc) # For k-means
 install.packages('seriation', dependencies=TRUE)
