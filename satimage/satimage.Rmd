@@ -334,12 +334,11 @@ fviz_dist(dist(partition.vat), show_labels = FALSE)
 
 
 ### Quality Measures
-
-# Scelta dei parametri di seed e nstart
 ```{r}
-# Il valore ottimale per nstart e' stato individuato in 5, che garantisce un'ottima misura di stabilita' dell'algorimto, con una bassa influenza del seed iniziale rispetto alla suddivisione in clusterr del dataset
+# Evaluating seed e nstart parameters
+# Best nstart value is 5, which guarantees stability for the algorithm, with a low influence of the initial seed on the clustering result of the dataset
 
-# Di seguito e' mostrato come i diversi valori di seed (scelti in maniera casuale), non influenzino la misura di silhouette
+# Following it's shown how different values of seed, chosen randomly, do not influence silhouette values
 Z <- array(sample(1:100, 20, replace=T), c(20, 1))
 silhouettes <- c()
 for(i in 1:20) {
