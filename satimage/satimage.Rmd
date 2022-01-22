@@ -117,7 +117,7 @@ fviz_pca_var(pca.results, col.var = "black")
 
 ```
 
-Analizzando le coordinate per i singoli attributi si riesce a capire i 4 cluster rappresentano i 4 tipi di variabili in gioco (Red, Green NIR1, NIR2)
+Analizzando le coordinate per i singoli attributi si riesce a capire che le variabili sovrapposte corrispondono tutte alla stessa lunghezza d’onda (Red, Green NIR1, NIR2)
 
 ```{r}
 # Extract the principal components
@@ -294,7 +294,7 @@ for (i in 1:n_group) {
 
       }
       
-      print(ggplot2::ggplot(res_df, ggplot2::aes(x = 1-Specificity, y=Sensitivity)) + ggplot2::geom_path(ggplot2::aes(color = Group, linetype=Method)) + ggplot2::geom_segment(ggplot2::aes(x = 0, y = 0, xend = 1, yend = 1), colour='grey', linetype = 'dotdash') + ggplot2::theme_bw() + ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5), legend.justification=c(1, 0), legend.position=c(.95, .05), legend.title=ggplot2::element_blank(), legend.background = ggplot2::element_rect(fill=NULL, size=0.5, linetype="solid", colour ="black")))
+      plot(ggplot2::ggplot(res_df, ggplot2::aes(x = 1-Specificity, y=Sensitivity)) + ggplot2::geom_path(ggplot2::aes(color = Group, linetype=Method)) + ggplot2::geom_segment(ggplot2::aes(x = 0, y = 0, xend = 1, yend = 1), colour='grey', linetype = 'dotdash') + ggplot2::theme_bw() + ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5), legend.justification=c(1, 0), legend.position=c(.95, .05), legend.title=ggplot2::element_blank(), legend.background = ggplot2::element_rect(fill=NULL, size=0.5, linetype="solid", colour ="black")))
     
 }
 
@@ -364,7 +364,7 @@ plot(nk, SW, type="l", xlab="number of clusters", ylab="average silhouette")
 ```
 
 ### Evaluation al variare di k
-Evidenzia la misura di similarita' tra i cluster e le classi del dataset, al variaaare del parametro k
+Evidenzia la misura di similarita' tra i cluster e le classi del dataset, al variare del parametro k
 Il valore piu' alto e' ottenuto con k=6, in linea con le rilevazioni precedenti
 ```{r}
 similarity = c()
